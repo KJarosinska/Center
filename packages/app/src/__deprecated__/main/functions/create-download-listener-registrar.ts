@@ -14,6 +14,7 @@ import {
 import transferProgress from "App/__deprecated__/renderer/utils/transfer-progress"
 import { BrowserWindow, DownloadItem } from "electron"
 import { ipcMain } from "electron-better-ipc"
+import { Event } from "electron/main"
 import path from "path"
 
 const registeredChannels: string[] = []

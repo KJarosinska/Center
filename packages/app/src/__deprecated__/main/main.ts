@@ -109,18 +109,18 @@ process.on("uncaughtException", (error) => {
   // TODO: Add contact support modal
 })
 
+// TODO how to install devtools after node update?
 const installExtensions = async () => {
   // AUTO DISABLED - fix me if you like :)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const installer = require("electron-devtools-installer")
-  const forceDownload = !!process.env.UPGRADE_EXTENSIONS
-  const extensions = ["REACT_DEVELOPER_TOOLS", "REDUX_DEVTOOLS"]
-
-  return Promise.all(
-    // AUTO DISABLED - fix me if you like :)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    extensions.map((name) => installer.default(installer[name], forceDownload))
-  ).catch(logger.error)
+  // const installer = require("electron-devtools-installer")
+  // const forceDownload = !!process.env.UPGRADE_EXTENSIONS
+  // const extensions = ["REACT_DEVELOPER_TOOLS", "REDUX_DEVTOOLS"]
+  // return Promise.all(
+  //   // AUTO DISABLED - fix me if you like :)
+  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  //   extensions.map((name) => installer.default(installer[name], forceDownload))
+  // ).catch(logger.error)
 }
 
 const productionEnvironment = process.env.NODE_ENV === "production"
@@ -132,6 +132,7 @@ const commonWindowOptions: BrowserWindowConstructorOptions = {
     nodeIntegration: true,
     webSecurity: false,
     devTools: !productionEnvironment,
+    contextIsolation: true,
   },
 }
 const getWindowOptions = (
@@ -225,12 +226,21 @@ const createWindow = async () => {
     mockAutoupdate(win)
   }
 
-  win.webContents.on("new-window", (event, href) => {
-    event.preventDefault()
-    // AUTO DISABLED - fix me if you like :)
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    shell.openExternal(href)
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return {
+      action: "allow",
+      overrideBrowserWindowOptions: {},
+    }
   })
+
+  // to do
+  // win.webContents.on("new-window", (event, href) => {
+  //   event.preventDefault()
+  //   // AUTO DISABLED - fix me if you like :)
+  //   // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  //   shell.openExternal(href)
+  // })
 
   if (productionEnvironment) {
     win.webContents.once("dom-ready", () => {
@@ -342,12 +352,21 @@ const createOpenWindowListener = (
               search: `?mode=${mode}`,
             })
       )
-      newWindow.webContents.on("new-window", (event, href) => {
-        event.preventDefault()
-        // AUTO DISABLED - fix me if you like :)
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        shell.openExternal(href)
+
+      newWindow.webContents.setWindowOpenHandler(({ url }) => {
+        shell.openExternal(url)
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {},
+        }
       })
+
+      // newWindow.webContents.on("new-window", (event, href) => {
+      //   event.preventDefault()
+      //   // AUTO DISABLED - fix me if you like :)
+      //   // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      //   shell.openExternal(href)
+      // })
     } else {
       newWindow.show()
     }

@@ -5,7 +5,7 @@
 
 // AUTO DISABLED - fix me if you like :)
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-const { dialog } = require("electron").remote
+import { dialog } from "@electron/remote"
 
 const useLocationPicker = async (
   defaultPath?: string
