@@ -86,7 +86,6 @@ import registerExternalUsageDevice from "App/device/listeners/register-external-
 // AUTO DISABLED - fix me if you like :)
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
 require("dotenv").config()
-
 require("@electron/remote/main").initialize()
 
 logger.info("Starting the app")
@@ -134,6 +133,7 @@ const commonWindowOptions: BrowserWindowConstructorOptions = {
     nodeIntegration: true,
     webSecurity: false,
     devTools: !productionEnvironment,
+    // contextIsolation: true,
     contextIsolation: false,
   },
 }
@@ -167,7 +167,7 @@ const createWindow = async () => {
     })
   )
   win.removeMenu()
-
+  require("@electron/remote/main").enable(win.webContents)
   win.webContents.on("before-input-event", (event, input) => {
     if ((input.control || input.meta) && input.key.toLowerCase() === "r") {
       event.preventDefault()
@@ -297,7 +297,7 @@ ipcMain.answerRenderer(HelpActions.OpenWindow, () => {
       removeGetHelpStoreHandler()
       helpWindow = null
     })
-
+    require("@electron/remote/main").enable(helpWindow.webContents)
     // AUTO DISABLED - fix me if you like :)
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     helpWindow.loadURL(
@@ -338,7 +338,7 @@ const createOpenWindowListener = (
         })
       )
       newWindow.removeMenu()
-
+      require("@electron/remote/main").enable(newWindow.webContents)
       newWindow.on("closed", () => {
         newWindow = null
       })
