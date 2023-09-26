@@ -87,6 +87,8 @@ import registerExternalUsageDevice from "App/device/listeners/register-external-
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
 require("dotenv").config()
 
+require("@electron/remote/main").initialize()
+
 logger.info("Starting the app")
 
 let win: BrowserWindow | null
@@ -132,7 +134,7 @@ const commonWindowOptions: BrowserWindowConstructorOptions = {
     nodeIntegration: true,
     webSecurity: false,
     devTools: !productionEnvironment,
-    contextIsolation: true,
+    contextIsolation: false,
   },
 }
 const getWindowOptions = (
