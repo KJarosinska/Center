@@ -34,8 +34,11 @@ export const useHelpSearch = (
       if (storeData) {
         setData(storeData)
       } else {
-        const defaultHelpItems =
-          require("App/help/default-help.json") as QuestionAndAnswer
+        const defaultHelpItems = {
+          items: {},
+          collection: [],
+        } as QuestionAndAnswer
+        // require("App/help/default-help.json") as QuestionAndAnswer
         setData(defaultHelpItems)
         if (saveToStore) {
           await saveToStore(defaultHelpItems)

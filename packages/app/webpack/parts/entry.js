@@ -4,5 +4,5 @@ module.exports = (renderer) =>
         app: ["@babel/polyfill", "./src/__deprecated__/renderer/app.tsx"],
       }
     : {
-        main: "./src/__deprecated__/main/main.ts",
+        main: "./src/__deprecated__/main/main-2.ts",
       }

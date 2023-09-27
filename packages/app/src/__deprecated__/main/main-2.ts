@@ -1,0 +1,571 @@
+import "reflect-metadata"
+import {
+  app,
+  BrowserWindow,
+  BrowserWindowConstructorOptions,
+  shell,
+} from "electron"
+import { config as dotenvConfig } from "dotenv"
+import {
+  initialize as remoteInitialize,
+  enable as remoteEnable,
+} from "@electron/remote/main"
+import logger from "App/__deprecated__/main/utils/logger"
+import {
+  createMetadataStore,
+  MetadataInitializer,
+  registerMetadataAllGetValueListener,
+  registerMetadataGetValueListener,
+  registerMetadataSetValueListener,
+} from "App/metadata"
+import {
+  WINDOW_SIZE,
+  DEFAULT_WINDOWS_SIZE,
+  GOOGLE_AUTH_WINDOW_SIZE,
+} from "./config"
+import {
+  URL_MAIN,
+  URL_OVERVIEW,
+} from "App/__deprecated__/renderer/constants/urls"
+import { join } from "path"
+import * as url from "url"
+import { createSettingsService } from "App/settings/containers/settings.container"
+import { ApplicationModule } from "App/core/application.module"
+import { ipcMain } from "electron-better-ipc"
+import registerPureOsDownloadListener from "App/__deprecated__/main/functions/register-pure-os-download-listener"
+import registerNewsListener from "App/__deprecated__/main/functions/register-news-listener/register-news-listener"
+import registerAppLogsListeners from "App/__deprecated__/main/functions/register-app-logs-listener"
+import registerContactsExportListener from "App/contacts/backend/export-contacts"
+import registerEventsExportListener from "App/__deprecated__/calendar/backend/export-events"
+import registerWriteFileListener from "App/__deprecated__/main/functions/register-write-file-listener"
+import registerCopyFileListener from "App/__deprecated__/main/functions/register-copy-file-listener"
+import registerWriteGzipListener from "App/__deprecated__/main/functions/register-write-gzip-listener"
+import registerRmdirListener from "App/__deprecated__/main/functions/register-rmdir-listener"
+import registerArchiveFilesListener from "App/__deprecated__/main/functions/register-archive-files-listener"
+import registerReadFileListener from "App/file-system/listeners/read-file.listener"
+import createDownloadListenerRegistrar from "App/__deprecated__/main/functions/create-download-listener-registrar"
+import registerEncryptFileListener from "App/file-system/listeners/encrypt-file.listener"
+import registerDecryptFileListener from "App/file-system/listeners/decrypt-file.listener"
+import registerUnlinkFileListener from "App/file-system/listeners/unlink-file.listener"
+import { registerOsUpdateAlreadyDownloadedCheck } from "App/update/requests"
+import registerExternalUsageDevice from "App/device/listeners/register-external-usage-device.listner"
+import { HelpActions } from "App/__deprecated__/common/enums/help-actions.enum"
+import {
+  registerDownloadHelpHandler,
+  removeDownloadHelpHandler,
+} from "App/__deprecated__/main/functions/download-help-handler"
+import {
+  registerSetHelpStoreHandler,
+  removeSetHelpStoreHandler,
+} from "App/__deprecated__/main/functions/set-help-store-handler"
+import {
+  registerGetHelpStoreHandler,
+  removeGetHelpStoreHandler,
+} from "App/__deprecated__/main/functions/get-help-store-handler"
+import { Mode } from "App/__deprecated__/common/enums/mode.enum"
+import { BrowserActions } from "App/__deprecated__/common/enums/browser-actions.enum"
+import { AboutActions } from "App/__deprecated__/common/enums/about-actions.enum"
+import { PureSystemActions } from "App/__deprecated__/common/enums/pure-system-actions.enum"
+import { GoogleAuthActions } from "App/__deprecated__/common/enums/google-auth-actions.enum"
+import { Scope } from "App/__deprecated__/renderer/models/external-providers/google/google.interface"
+import {
+  authServerPort,
+  createAuthServer,
+  killAuthServer,
+} from "App/__deprecated__/main/auth-server"
+import { check as checkPort } from "tcp-port-used"
+import { OutlookAuthActions } from "App/__deprecated__/common/enums/outlook-auth-actions.enum"
+import {
+  clientId,
+  redirectUrl,
+} from "App/__deprecated__/renderer/models/external-providers/outlook/outlook.constants"
+import { TokenRequester } from "App/__deprecated__/renderer/models/external-providers/outlook/token-requester"
+
+dotenvConfig()
+remoteInitialize()
+
+logger.info("Starting the app")
+
+let win: BrowserWindow | null
+let helpWindow: BrowserWindow | null = null
+let googleAuthWindow: BrowserWindow | null = null
+let outlookAuthWindow: BrowserWindow | null = null
+const licenseWindow: BrowserWindow | null = null
+const termsWindow: BrowserWindow | null = null
+const policyWindow: BrowserWindow | null = null
+const metadataStore = createMetadataStore()
+
+// Disables CORS in Electron 9
+app.commandLine.appendSwitch("disable-features", "OutOfBlinkCors")
+
+const gotTheLock = app.requestSingleInstanceLock()
+
+// Fetch and log all errors
+process.on("uncaughtException", (error) => {
+  logger.error(error)
+  // TODO: Add contact support modal
+})
+
+// TODO how to install devtools after node update?
+const installExtensions = async () => {
+  // AUTO DISABLED - fix me if you like :)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  // const installer = require("electron-devtools-installer")
+  // const forceDownload = !!process.env.UPGRADE_EXTENSIONS
+  // const extensions = ["REACT_DEVELOPER_TOOLS", "REDUX_DEVTOOLS"]
+  // return Promise.all(
+  //   // AUTO DISABLED - fix me if you like :)
+  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  //   extensions.map((name) => installer.default(installer[name], forceDownload))
+  // ).catch(logger.error)
+}
+
+const productionEnvironment = process.env.NODE_ENV === "production"
+const commonWindowOptions: BrowserWindowConstructorOptions = {
+  resizable: true,
+  fullscreen: false,
+  useContentSize: true,
+  webPreferences: {
+    nodeIntegration: true,
+    webSecurity: false,
+    devTools: !productionEnvironment,
+    contextIsolation: false,
+  },
+}
+const getWindowOptions = (
+  extendedWindowOptions?: BrowserWindowConstructorOptions
+) => ({
+  ...extendedWindowOptions,
+  ...commonWindowOptions,
+})
+
+const createWindow = async () => {
+  if (!productionEnvironment) {
+    await installExtensions()
+  }
+
+  const title = "Mudita Center"
+
+  // AUTO DISABLED - fix me if you like :)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call
+  ;(global as any).__static = join(__dirname, "/static").replace(/\\/g, "\\\\")
+
+  //   const win = new BrowserWindow({
+  //     width: 800,
+  //     height: 600,
+  //     webPreferences: {
+  //       nodeIntegration: true,
+  //       webSecurity: false,
+  //       devTools: true,
+  //       contextIsolation: false,
+  //     },
+  //   })
+  win = new BrowserWindow(
+    getWindowOptions({
+      minWidth: WINDOW_SIZE.minWidth,
+      width: WINDOW_SIZE.width,
+      minHeight: WINDOW_SIZE.minHeight,
+      height: WINDOW_SIZE.height,
+      title,
+    })
+  )
+
+  //   win.loadFile("index.html")
+  win.webContents.openDevTools() // TODO REMOVE
+
+  win.removeMenu()
+  remoteEnable(win.webContents)
+
+  win.webContents.on("before-input-event", (event, input) => {
+    if ((input.control || input.meta) && input.key.toLowerCase() === "r") {
+      event.preventDefault()
+    }
+  })
+
+  win.on("closed", () => {
+    win = null
+    app.exit()
+  })
+
+  new MetadataInitializer(metadataStore).init()
+
+  const registerDownloadListener = createDownloadListenerRegistrar(win)
+
+  const settingsService = createSettingsService()
+  settingsService.init()
+
+  const appModules = new ApplicationModule(ipcMain)
+
+  registerPureOsDownloadListener(registerDownloadListener)
+  registerOsUpdateAlreadyDownloadedCheck()
+  registerNewsListener()
+  registerAppLogsListeners()
+  registerContactsExportListener()
+  registerEventsExportListener()
+  registerWriteFileListener()
+  registerCopyFileListener()
+  registerRmdirListener()
+  registerWriteGzipListener()
+  registerArchiveFilesListener()
+  registerEncryptFileListener()
+  registerReadFileListener()
+  registerUnlinkFileListener()
+  registerDecryptFileListener()
+  registerMetadataAllGetValueListener()
+  registerMetadataGetValueListener()
+  registerMetadataSetValueListener()
+  registerExternalUsageDevice()
+
+  if (productionEnvironment) {
+    win.setMenuBarVisibility(false)
+    // AUTO DISABLED - fix me if you like :)
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    // win.loadURL(
+    //   url.format({
+    //     pathname: path.join(__dirname, "index.html"),
+    //     protocol: "file:",
+    //     slashes: true,
+    //   })
+    // )
+    // autoupdate(win)
+  } else {
+    process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "1"
+    // AUTO DISABLED - fix me if you like :)
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    // win.loadURL(`http://localhost:2003`)
+    win.loadFile("index.html")
+    // mockAutoupdate(win)
+  }
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return {
+      action: "allow",
+      overrideBrowserWindowOptions: {},
+    }
+  })
+
+  logger.updateMetadata()
+}
+
+// app.whenReady().then(async () => {
+//   await createWindow()
+// })
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  // AUTO DISABLED - fix me if you like :)
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.whenReady().then(createWindow)
+  app.on("window-all-closed", () => {
+    app.quit()
+  })
+
+  app.on("activate", () => {
+    if (win === null) {
+      void createWindow()
+    }
+  })
+}
+
+ipcMain.answerRenderer(HelpActions.OpenWindow, () => {
+  const title = "Mudita Center - Help"
+  if (helpWindow === null) {
+    helpWindow = new BrowserWindow(
+      getWindowOptions({
+        width: DEFAULT_WINDOWS_SIZE.width,
+        height: DEFAULT_WINDOWS_SIZE.height,
+        title,
+      })
+    )
+    helpWindow.removeMenu()
+    remoteEnable(helpWindow.webContents)
+
+    helpWindow.on("closed", () => {
+      removeDownloadHelpHandler()
+      removeSetHelpStoreHandler()
+      removeGetHelpStoreHandler()
+      helpWindow = null
+    })
+    // require("@electron/remote/main").enable(helpWindow.webContents)
+    // AUTO DISABLED - fix me if you like :)
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    helpWindow.loadURL(
+      !productionEnvironment
+        ? `http://localhost:2003/?mode=${Mode.Help}#${URL_MAIN.help}`
+        : url.format({
+            pathname: join(__dirname, "index.html"),
+            protocol: "file:",
+            slashes: true,
+            hash: URL_MAIN.help,
+            search: `?mode=${Mode.Help}`,
+          })
+    )
+    registerDownloadHelpHandler()
+    registerSetHelpStoreHandler()
+    registerGetHelpStoreHandler()
+  } else {
+    helpWindow.show()
+  }
+})
+
+const createOpenWindowListener = (
+  channel: string,
+  mode: string,
+  urlMain: string,
+  title: string,
+  newWindow: BrowserWindow | null = null
+) => {
+  ipcMain.answerRenderer(channel, async () => {
+    if (newWindow === null) {
+      // AUTO DISABLED - fix me if you like :)
+      // eslint-disable-next-line @typescript-eslint/await-thenable
+      newWindow = new BrowserWindow(
+        getWindowOptions({
+          width: DEFAULT_WINDOWS_SIZE.width,
+          height: DEFAULT_WINDOWS_SIZE.height,
+          title,
+        })
+      )
+      newWindow.removeMenu()
+      remoteEnable(newWindow.webContents)
+      //   require("@electron/remote/main").enable(newWindow.webContents)
+      newWindow.on("closed", () => {
+        newWindow = null
+      })
+
+      await newWindow.loadURL(
+        !productionEnvironment
+          ? `http://localhost:2003/?mode=${mode}#${urlMain}`
+          : url.format({
+              pathname: join(__dirname, "index.html"),
+              protocol: "file:",
+              slashes: true,
+              hash: urlMain,
+              search: `?mode=${mode}`,
+            })
+      )
+
+      newWindow.webContents.setWindowOpenHandler(({ url }) => {
+        shell.openExternal(url)
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {},
+        }
+      })
+
+      // newWindow.webContents.on("new-window", (event, href) => {
+      //   event.preventDefault()
+      //   // AUTO DISABLED - fix me if you like :)
+      //   // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      //   shell.openExternal(href)
+      // })
+    } else {
+      newWindow.show()
+    }
+  })
+}
+
+ipcMain.answerRenderer(BrowserActions.PolicyOpenBrowser, () =>
+  shell.openExternal(
+    `${process.env.MUDITA_CENTER_SERVER_URL ?? ""}/privacy-policy-url`
+  )
+)
+ipcMain.answerRenderer(BrowserActions.UpdateOpenBrowser, () =>
+  shell.openExternal("https://mudita.com")
+)
+
+createOpenWindowListener(
+  AboutActions.LicenseOpenWindow,
+  Mode.License,
+  URL_MAIN.license,
+  "Mudita Center - License",
+  licenseWindow
+)
+
+createOpenWindowListener(
+  AboutActions.TermsOpenWindow,
+  Mode.TermsOfService,
+  URL_MAIN.termsOfService,
+  "Mudita Center - Terms of service",
+  termsWindow
+)
+
+createOpenWindowListener(
+  AboutActions.PolicyOpenWindow,
+  Mode.PrivacyPolicy,
+  URL_MAIN.privacyPolicy,
+  "Mudita Center - Privacy policy",
+  policyWindow
+)
+
+createOpenWindowListener(
+  PureSystemActions.SarOpenWindow,
+  Mode.Sar,
+  URL_OVERVIEW.sar,
+  "Mudita Center - SAR information",
+  policyWindow
+)
+
+const createErrorWindow = async (googleAuthWindow: BrowserWindow) => {
+  return await googleAuthWindow.loadURL(
+    !productionEnvironment
+      ? `http://localhost:2003/?mode=${Mode.ServerError}#${URL_MAIN.error}`
+      : url.format({
+          pathname: join(__dirname, "index.html"),
+          protocol: "file:",
+          slashes: true,
+          hash: URL_MAIN.error,
+          search: `?mode=${Mode.ServerError}`,
+        })
+  )
+}
+
+ipcMain.answerRenderer(GoogleAuthActions.OpenWindow, async (scope: Scope) => {
+  const title = "Mudita Center - Google Auth"
+  if (process.env.MUDITA_CENTER_SERVER_URL) {
+    const cb = (data: string) => {
+      // AUTO DISABLED - fix me if you like :)
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      ipcMain.callRenderer(
+        win as BrowserWindow,
+        GoogleAuthActions.GotCredentials,
+        data
+      )
+    }
+
+    if (googleAuthWindow === null) {
+      googleAuthWindow = new BrowserWindow(
+        getWindowOptions({
+          width: GOOGLE_AUTH_WINDOW_SIZE.width,
+          height: GOOGLE_AUTH_WINDOW_SIZE.height,
+          titleBarStyle:
+            process.env.NODE_ENV === "development" ? "default" : "hidden",
+          title,
+        })
+      )
+      googleAuthWindow.removeMenu()
+
+      googleAuthWindow.on("close", () => {
+        void ipcMain.callRenderer(
+          win as BrowserWindow,
+          GoogleAuthActions.CloseWindow
+        )
+        googleAuthWindow = null
+        killAuthServer()
+      })
+
+      if (await checkPort(authServerPort)) {
+        await createErrorWindow(googleAuthWindow)
+        return
+      }
+
+      createAuthServer(cb)
+
+      let scopeUrl: string
+
+      switch (scope) {
+        case Scope.Calendar:
+          scopeUrl = "https://www.googleapis.com/auth/calendar"
+          break
+        case Scope.Contacts:
+          scopeUrl = "https://www.googleapis.com/auth/contacts"
+          break
+      }
+      const url = `${process.env.MUDITA_CENTER_SERVER_URL}/google-auth-init`
+      // AUTO DISABLED - fix me if you like :)
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      googleAuthWindow.loadURL(`${url}?scope=${scopeUrl}`)
+    } else {
+      googleAuthWindow.show()
+    }
+  } else {
+    console.log("No Google Auth URL defined!")
+  }
+})
+
+ipcMain.answerRenderer(GoogleAuthActions.CloseWindow, () => {
+  killAuthServer()
+  googleAuthWindow?.close()
+})
+
+ipcMain.answerRenderer(
+  OutlookAuthActions.OpenWindow,
+  // AUTO DISABLED - fix me if you like :)
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async (data: { authorizationUrl: string; scope: string }) => {
+    const title = "Mudita Center - Outlook Auth"
+    const { authorizationUrl, scope } = data
+    if (clientId) {
+      if (outlookAuthWindow === null) {
+        outlookAuthWindow = new BrowserWindow(
+          getWindowOptions({
+            width: 600,
+            height: 600,
+            titleBarStyle:
+              process.env.NODE_ENV === "development" ? "default" : "hidden",
+            title,
+          })
+        )
+        outlookAuthWindow.removeMenu()
+
+        // AUTO DISABLED - fix me if you like :)
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        outlookAuthWindow.loadURL(authorizationUrl)
+
+        outlookAuthWindow.on("close", () => {
+          void ipcMain.callRenderer(
+            win as BrowserWindow,
+            OutlookAuthActions.CloseWindow
+          )
+          outlookAuthWindow = null
+        })
+
+        const {
+          session: { webRequest },
+        } = outlookAuthWindow.webContents
+        webRequest.onBeforeRequest(
+          {
+            urls: [`${redirectUrl}*`],
+          }, // * character is used to "catch all" url params
+          // AUTO DISABLED - fix me if you like :)
+          // eslint-disable-next-line @typescript-eslint/no-misused-promises
+          async ({ url }) => {
+            const code = new URL(url).searchParams.get("code") || ""
+            try {
+              const tokenRequester = new TokenRequester()
+              const tokens = await tokenRequester.requestTokens(code, scope)
+              // AUTO DISABLED - fix me if you like :)
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises
+              ipcMain.callRenderer(
+                win as BrowserWindow,
+                OutlookAuthActions.GotCredentials,
+                tokens
+              )
+            } catch (error) {
+              // AUTO DISABLED - fix me if you like :)
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises
+              ipcMain.callRenderer(
+                win as BrowserWindow,
+                OutlookAuthActions.GotCredentials,
+                { error }
+              )
+            }
+
+            outlookAuthWindow?.close()
+            outlookAuthWindow = null
+          }
+        )
+      } else {
+        outlookAuthWindow.show()
+      }
+    } else {
+      logger.info("No Outlook Auth URL defined!")
+    }
+  }
+)
+
+ipcMain.answerRenderer(OutlookAuthActions.CloseWindow, () => {
+  outlookAuthWindow?.close()
+})

@@ -10,6 +10,8 @@
     "bootstrap:ci": "lerna bootstrap --no-ci",
     "bootstrap:netlify": "lerna bootstrap --force-local --ignore-scripts",
     "develop": "npm run app:develop --",
+    "predevelop": "lerna run --scope @mudita/mudita-center-app build:main && lerna run --scope @mudita/mudita-center-app build:renderer",
+    "build2": "lerna run --scope @mudita/mudita-center-app build:renderer",
     "lint": "lerna run lint --",
     "lint:fix": "lerna run lint:fix",
     "lint:typecheck": "lerna run lint:typecheck",
