@@ -11,7 +11,6 @@ export enum Feature {
   MessagesThreadCallsEnabled = "messages-thread-calls-enabled",
   MessagesCallFromThreadEnabled = "messages-call-from-thread-enabled",
   MessagesDraftStatus = "messages-draft-status",
-  MuditaCenterPrereleaseEnabled = "mudita-center-prerelease-enabled",
   ContactForwardEnabled = "contact-forward-enabled",
   ContactBlockingEnabled = "contact-blocking-enabled",
   ContactPhoneFieldIconsEnabled = "contact-phone-field-icons-enabled",
@@ -27,7 +26,6 @@ export enum Feature {
   MeditationTabEnabled = "meditation-tab-enabled",
   RecoveryModeTabEnabled = "recovery-mode-tab-enabled",
   YourPureIconsEnabled = "your-pure-icons-enabled",
-  OrderTemplate = "order-template",
   AlphaRelaseWarning = "alpha-release-warning",
   ForceUpdate = "force-update",
 }
