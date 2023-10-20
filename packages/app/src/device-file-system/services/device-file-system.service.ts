@@ -112,9 +112,9 @@ export class DeviceFileSystemService {
         const receivedFileCrc32 =
           downloadFileResponse.data.fileCrc32.toLowerCase()
         const countedFileCrc32 = countCRC32(fileBuffer)
-        logger.info(
-          `downloadFile crc: received ${receivedFileCrc32}, counted  ${countedFileCrc32}`
-        )
+        // logger.info(
+        //   `downloadFile crc: received ${receivedFileCrc32}, counted  ${countedFileCrc32}`
+        // )
 
         if (receivedFileCrc32 === countedFileCrc32) {
           return Result.success(fileBuffer)

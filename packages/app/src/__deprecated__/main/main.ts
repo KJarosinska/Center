@@ -78,12 +78,68 @@ import { registerOsUpdateAlreadyDownloadedCheck } from "App/update/requests"
 import { createSettingsService } from "App/settings/containers/settings.container"
 import { ApplicationModule } from "App/core/application.module"
 import registerExternalUsageDevice from "App/device/listeners/register-external-usage-device.listner"
+import { exec } from "child_process"
+import sudoPrompt from "@vscode/sudo-prompt"
 
 // AUTO DISABLED - fix me if you like :)
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
 require("dotenv").config()
 
 logger.info("Starting the app")
+
+logger.info(`process.platform: ${process.platform}`)
+
+if (process.platform === "linux") {
+  const processUid = process.getuid ? process.getuid() : undefined
+  const isAdmin = processUid === 0
+
+  // exec("groups", (error3, stdout3, stderr3) => {
+  //   //now it should work :)
+  //   logger.info(`runProcessElevated stderr3 ${stderr3}`)
+  //   logger.info(`runProcessElevated error3 ${error3}`)
+  //   logger.info(`runProcessElevated stdout3 ${stdout3}`)
+  // })
+
+  if (isAdmin) {
+    //notify user that not all features will work correctly
+  } else {
+    exec("groups", (error, stdout, stderr) => {
+      if (error) {
+        logger.info(`error: ${error.message}`)
+      }
+      if (stderr) {
+        logger.info(`stderr: ${stderr}`)
+      }
+      logger.info(`stdout: ${stdout}`)
+
+      const userInDialout = stdout.includes("dialout")
+      logger.info(`userInDialout: ${userInDialout}`)
+
+      //ask user for confirmation... :)
+      if (!userInDialout) {
+        sudoPrompt.exec(
+          "usermod -aG dialout $USER",
+          { name: "Electron Runas Admin" },
+          (error2, stdout2, stderr2) => {
+            if (stderr) {
+              logger.info(`runProcessElevated stderr2 ${stderr2}`)
+            }
+            if (error2) {
+              logger.info(`runProcessElevated error2 ${error2}`)
+            }
+            if (stdout2) {
+              logger.info(`runProcessElevated stdout2 ${stdout2}`)
+            }
+            logger.info(`runProcessElevated no error no stdout`)
+            logger.info(`runProcessElevated now you can restart/logout`)
+          }
+        )
+      } else {
+        //it's fine? User is in dialout group
+      }
+    })
+  }
+}
 
 let win: BrowserWindow | null
 let helpWindow: BrowserWindow | null = null

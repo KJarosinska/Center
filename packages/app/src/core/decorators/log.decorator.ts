@@ -31,21 +31,21 @@ export function log(message: string, logConfig = LogConfig.ReturnValue) {
       )
 
       void Promise.resolve(valueOrPromise).then((value: unknown) => {
-        logger.info(message)
+        //logger.info(message)
 
         if (logConfig === LogConfig.ReturnValue) {
           if (
             Object.prototype.hasOwnProperty.call(value, "data") &&
             Object.prototype.hasOwnProperty.call(value, "ok")
           ) {
-            logger.info(
-              JSON.stringify([(value as ResultObject<unknown>).data], null, 2)
-            )
+            // logger.info(
+            //   JSON.stringify([(value as ResultObject<unknown>).data], null, 2)
+            // )
           } else {
-            logger.info(JSON.stringify([value], null, 2))
+            //logger.info(JSON.stringify([value], null, 2))
           }
         } else {
-          logger.info(JSON.stringify(args, null, 2))
+          //logger.info(JSON.stringify(args, null, 2))
         }
       })
 

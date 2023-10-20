@@ -46,12 +46,12 @@ export class AnalyticDataTrackerFactory {
     { siteId, apiUrl }: AnalyticDataTrackerFactoryOption
   ): AnalyticDataTrackerClass {
     if (siteId === undefined || isNaN(Number(siteId))) {
-      logger.info(`AnalyticDataTracker siteId is required`)
+      //logger.info(`AnalyticDataTracker siteId is required`)
       return new MatomoTrackerPlaceholder()
     }
 
     if (typeof apiUrl !== "string" || apiUrl === "") {
-      logger.info(`AnalyticDataTracker apiUrl is required`)
+      //logger.info(`AnalyticDataTracker apiUrl is required`)
       return new MatomoTrackerPlaceholder()
     }
 
