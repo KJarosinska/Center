@@ -89,6 +89,55 @@ logger.info("Starting the app")
 
 logger.info(`process.platform: ${process.platform}`)
 
+const addUserToGroup = () => {
+  return new Promise((resolve, reject) => {
+    sudoPrompt.exec(
+      "usermod -aG dialout $USER",
+      { name: "Electron Runas Admin" },
+      (error2, stdout2, stderr2) => {
+        // logger.info(
+        //   `runProcessElevated error2 ${error2} stdout2 ${stdout2} stderr2 ${stderr2}`
+        // )
+        // if (stderr2) {
+        //   logger.info(`runProcessElevated stderr2 ${stderr2}`)
+        // }
+        // if (error2) {
+        //   logger.info(`runProcessElevated error2 ${error2}`)
+        // }
+        // if (stdout2) {
+        //   logger.info(`runProcessElevated stdout2 ${stdout2}`)
+        // }
+        if (error2 === null) {
+          resolve("ok")
+        } else {
+          reject("error")
+        }
+      }
+    )
+  })
+}
+
+const rebootMachine = () => {
+  return new Promise((resolve, reject) => {
+    exec("reboot", async (error, stdout, stderr) => {
+      logger.info(
+        `runProcessElevated error ${error === undefined ? "undefined" : error}`
+      )
+      logger.info(
+        `runProcessElevated stdout ${
+          stdout === undefined ? "undefined" : stdout
+        }`
+      )
+      logger.info(
+        `runProcessElevated stderr ${
+          stderr === undefined ? "undefined" : stderr
+        }`
+      )
+    })
+    resolve(1)
+  })
+}
+
 if (process.platform === "linux") {
   const processUid = process.getuid ? process.getuid() : undefined
   const isAdmin = processUid === 0
@@ -103,7 +152,7 @@ if (process.platform === "linux") {
   if (isAdmin) {
     //notify user that not all features will work correctly
   } else {
-    exec("groups", (error, stdout, stderr) => {
+    exec("groups", async (error, stdout, stderr) => {
       if (error) {
         logger.info(`error: ${error.message}`)
       }
@@ -117,23 +166,10 @@ if (process.platform === "linux") {
 
       //ask user for confirmation... :)
       if (!userInDialout) {
-        sudoPrompt.exec(
-          "usermod -aG dialout $USER",
-          { name: "Electron Runas Admin" },
-          (error2, stdout2, stderr2) => {
-            if (stderr) {
-              logger.info(`runProcessElevated stderr2 ${stderr2}`)
-            }
-            if (error2) {
-              logger.info(`runProcessElevated error2 ${error2}`)
-            }
-            if (stdout2) {
-              logger.info(`runProcessElevated stdout2 ${stdout2}`)
-            }
-            logger.info(`runProcessElevated no error no stdout`)
-            logger.info(`runProcessElevated now you can restart/logout`)
-          }
-        )
+        const result = await addUserToGroup()
+        logger.info(`result: ${result}`)
+        const result2 = await rebootMachine()
+        logger.info(`result2: ${result2}`)
       } else {
         //it's fine? User is in dialout group
       }
